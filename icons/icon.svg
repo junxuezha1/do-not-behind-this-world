@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#1a1a2e"/>
+  <!-- 上卦 三爻 -->
+  <rect x="126" y="80" width="260" height="28" rx="6" fill="#e94560"/>
+  <rect x="126" y="128" width="116" height="28" rx="6" fill="#4ecdc4"/>
+  <rect x="270" y="128" width="116" height="28" rx="6" fill="#4ecdc4"/>
+  <rect x="126" y="176" width="260" height="28" rx="6" fill="#f7b731"/>
+  <!-- 下卦 三爻 -->
+  <rect x="126" y="240" width="116" height="28" rx="6" fill="#45aaf2"/>
+  <rect x="270" y="240" width="116" height="28" rx="6" fill="#45aaf2"/>
+  <rect x="126" y="288" width="260" height="28" rx="6" fill="#d1d8e0"/>
+  <rect x="126" y="336" width="116" height="28" rx="6" fill="#26de81"/>
+  <rect x="270" y="336" width="116" height="28" rx="6" fill="#26de81"/>
+  <!-- 文字 -->
+  <text x="256" y="430" text-anchor="middle" fill="#e8e8e8" font-family="KaiTi, serif" font-size="56" font-weight="700">六爻解卦</text>
+  <text x="256" y="480" text-anchor="middle" fill="#a0a0b8" font-family="KaiTi, serif" font-size="28">四时有序</text>
+</svg>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#e94560">
+  <meta name="description" content="六爻纳甲解卦工具，支持规则引擎分析与AI研判">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <title>四时有序 · 六爻解卦</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/gua-display.css">
+  <link rel="stylesheet" href="css/report.css">
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="top-bar">
+    <div class="logo">四时有序 · 六爻解卦</div>
+    <nav class="top-nav">
+      <button class="nav-btn" id="btn-history" title="历史归档">归档</button>
+      <button class="nav-btn" id="btn-settings" title="AI设置">设置</button>
+    </nav>
+  </header>
+
+  <!-- 主内容区 -->
+  <main class="main-container">
+    <!-- 左侧：输入区 -->
+    <section class="input-section">
+      <div class="section-header">粘贴卦盘</div>
+      <textarea id="gua-input" class="gua-textarea" placeholder="在此粘贴灵光象吉等排盘软件的输出文本...
+
+示例格式：
+灵光象吉·六爻排盘
+时间：2026年03月11日 21:50:23
+占问：卜NFT论文能发表什么等次的期刊？
+丙午年 辛卯月 甲申日 乙亥时
+寅卯空 午未空 午未空 申酉空
+本卦：泽雷随/震宫·8 (归魂)
+变卦：兑为泽/兑宫·1 (六冲)
+玄 财戌 财未 - -     应 财未 - -
+虎 官申 官酉 —       官酉 —
+蛇 孙午 父亥 —       父亥 —
+勾 财辰 财辰 - -     世 财丑 - -
+雀 兄寅 兄寅 - -Χ    兄卯 —
+龙 父子 父子 —       孙巳 —"></textarea>
+      <div class="input-actions">
+        <button class="btn btn-primary" id="btn-parse">解析卦盘</button>
+        <button class="btn btn-secondary" id="btn-clear">清空</button>
+      </div>
+
+      <!-- 干支日历 -->
+      <div id="ganzhi-calendar" class="ganzhi-calendar"></div>
+    </section>
+
+    <!-- 右侧：结果区 -->
+    <section class="result-section">
+      <!-- 卦盘展示 -->
+      <div id="gua-display" class="gua-display hidden">
+        <div class="section-header">卦盘</div>
+        <div id="gua-panel"></div>
+      </div>
+
+      <!-- 分析报告 -->
+      <div id="report-section" class="report-section hidden">
+        <div class="report-tabs">
+          <button class="tab-btn active" data-tab="basic">基本信息</button>
+          <button class="tab-btn" data-tab="rules">规则分析</button>
+          <button class="tab-btn" data-tab="ai">AI 研判</button>
+          <button class="tab-btn" data-tab="yingqi">应期</button>
+        </div>
+        <div class="report-content">
+          <div id="tab-basic" class="tab-panel active"></div>
+          <div id="tab-rules" class="tab-panel"></div>
+          <div id="tab-ai" class="tab-panel">
+            <div class="ai-controls">
+              <select id="ai-provider-select">
+                <option value="openai">OpenAI (GPT)</option>
+                <option value="claude">Claude</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="custom">自定义</option>
+              </select>
+              <button class="btn btn-primary btn-sm" id="btn-ai-analyze">AI 断卦</button>
+            </div>
+            <div id="ai-output" class="ai-output"></div>
+          </div>
+          <div id="tab-yingqi" class="tab-panel"></div>
+        </div>
+      </div>
+
+      <!-- 归档操作 -->
+      <div id="archive-section" class="archive-section hidden">
+        <button class="btn btn-accent" id="btn-archive">归档此卦</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- 设置模态框 -->
+  <div id="modal-settings" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>AI 模型设置</h3>
+        <button class="modal-close" id="btn-close-settings">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>当前模型</label>
+          <select id="settings-provider">
+            <option value="openai">OpenAI (GPT)</option>
+            <option value="claude">Claude</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="custom">自定义 (OpenAI兼容)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="settings-apikey" placeholder="输入 API Key">
+        </div>
+        <div class="form-group">
+          <label>模型名称</label>
+          <input type="text" id="settings-model" placeholder="如 gpt-4o, claude-sonnet-4-20250514">
+        </div>
+        <div class="form-group">
+          <label>Base URL (可选，留空用默认)</label>
+          <input type="text" id="settings-baseurl" placeholder="https://api.example.com/v1/chat/completions">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-save-settings">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 历史归档模态框 -->
+  <div id="modal-history" class="modal hidden">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h3>历史归档</h3>
+        <button class="modal-close" id="btn-close-history">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="history-list" class="history-list">
+          <p class="empty-hint">暂无归档记录</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-sm" id="btn-clear-history">清空所有</button>
+        <button class="btn btn-secondary btn-sm" id="btn-export-history">导出 JSON</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script src="js/app-bundle.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

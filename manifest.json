@@ -1,0 +1,18 @@
+{
+  "name": "四时有序 · 六爻解卦",
+  "short_name": "六爻解卦",
+  "description": "六爻纳甲解卦工具，支持规则引擎分析与AI研判",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#e94560",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

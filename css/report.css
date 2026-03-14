@@ -1,0 +1,154 @@
+/* ═══ 分析报告样式 ═══ */
+
+/* 基本信息卡片 */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.info-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+}
+
+.info-card .label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.info-card .value {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 规则分析块 */
+.rule-block {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.rule-block-header {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(233,69,96,0.06);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.rule-block-header:hover { background: rgba(233,69,96,0.1); }
+.rule-block-header .toggle { color: var(--text-muted); font-size: 12px; }
+
+.rule-block-body {
+  padding: 12px 16px;
+}
+
+.rule-item {
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(42,42,74,0.3);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.rule-item:last-child { border-bottom: none; }
+
+.rule-item .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+.dot-positive { background: var(--success); }
+.dot-negative { background: var(--danger); }
+.dot-neutral { background: var(--info); }
+.dot-warning { background: var(--warning); }
+
+/* 用神体系 */
+.yongshen-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+.yongshen-table td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+}
+.yongshen-table .ys-label {
+  width: 60px;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(233,69,96,0.06);
+}
+
+/* 应期分析 */
+.yingqi-section {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.yingqi-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.yingqi-item {
+  padding: 8px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(42,42,74,0.3);
+}
+.yingqi-item:last-child { border-bottom: none; }
+
+.yingqi-condition {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* AI 输出 Markdown 样式 */
+.ai-output h1, .ai-output h2, .ai-output h3 {
+  color: var(--accent);
+  margin: 16px 0 8px;
+}
+.ai-output h3 { font-size: 15px; }
+.ai-output p { margin-bottom: 8px; }
+.ai-output ul, .ai-output ol {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+.ai-output li { margin-bottom: 4px; }
+.ai-output strong { color: var(--text-primary); }
+.ai-output em { color: var(--warning); }
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+.tag-red { background: rgba(235,59,90,0.15); color: var(--danger); }
+.tag-green { background: rgba(78,205,196,0.15); color: var(--success); }
+.tag-yellow { background: rgba(247,183,49,0.15); color: var(--warning); }
+.tag-blue { background: rgba(69,170,242,0.15); color: var(--info); }
+.tag-gray { background: rgba(160,160,184,0.15); color: var(--text-secondary); }
