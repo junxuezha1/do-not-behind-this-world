@@ -1,4 +1,4 @@
-const CACHE_NAME = 'liuyao-v1';
+const CACHE_NAME = 'liuyao-v2';
 const ASSETS = [
   './',
   './index.html',

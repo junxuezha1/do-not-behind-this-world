@@ -42,6 +42,46 @@ const PO_MAP = {
   '巳':'申','申':'巳','未':'戌','戌':'未',
 };
 
+// 三合局：三个地支合化为某五行
+const SAN_HE_JU = [
+  { members:['申','子','辰'], result:'water', name:'申子辰合水局' },
+  { members:['寅','午','戌'], result:'fire',  name:'寅午戌合火局' },
+  { members:['巳','酉','丑'], result:'metal', name:'巳酉丑合金局' },
+  { members:['亥','卯','未'], result:'wood',  name:'亥卯未合木局' },
+];
+
+// 三合局半合
+const BAN_HE_JU = [
+  { members:['申','子'], result:'water', name:'申子半合水局' },
+  { members:['子','辰'], result:'water', name:'子辰半合水局' },
+  { members:['寅','午'], result:'fire',  name:'寅午半合火局' },
+  { members:['午','戌'], result:'fire',  name:'午戌半合火局' },
+  { members:['巳','酉'], result:'metal', name:'巳酉半合金局' },
+  { members:['酉','丑'], result:'metal', name:'酉丑半合金局' },
+  { members:['亥','卯'], result:'wood',  name:'亥卯半合木局' },
+  { members:['卯','未'], result:'wood',  name:'卯未半合木局' },
+];
+
+// 三刑
+const SAN_XING_GROUPS = [
+  { members:['丑','未','戌'], name:'丑未戌三刑（恃势之刑）' },
+  { members:['寅','巳','申'], name:'寅巳申三刑（无恩之刑）' },
+];
+// 相刑（两两也算）
+const XIANG_XING_MAP = {
+  '丑':'未','未':'丑', // 也可以两两触发
+  '寅':'巳','巳':'申','申':'寅',
+  '子':'卯','卯':'子', // 无礼之刑
+  '辰':'辰','午':'午','酉':'酉','亥':'亥', // 自刑
+};
+
+// 相害（六害）
+const XIANG_HAI_MAP = {
+  '子':'未','未':'子','丑':'午','午':'丑',
+  '寅':'巳','巳':'寅','卯':'辰','辰':'卯',
+  '申':'亥','亥':'申','酉':'戌','戌':'酉',
+};
+
 const LQ_SHORT_TO_KEY = {
   '兄':'brother','孙':'offspring','财':'wealth','官':'officer','父':'parent',
 };
@@ -945,7 +985,6 @@ function handleParse() {
 
   renderGuaPanel();
   renderBasicInfo();
-  renderRulesAnalysis();
   renderYingQi();
   showResults();
   switchTab('basic');
@@ -1144,22 +1183,207 @@ function renderSideGuaCard(label, guaData, binary6) {
   return html;
 }
 
+// ═══ 生合刑克冲分析 ═══
+
+function renderShengHeXingKeChong(p, r) {
+  let html = '';
+  const findings = { liuHe:[], sanHe:[], banHe:[], liuChong:[], sanXing:[], xiangXing:[], xiangHai:[], xiangPo:[], shengKe:[] };
+
+  // 收集所有地支来源：爻、日辰、月建
+  const allDZ = [];
+  for (const yao of p.yaos) {
+    allDZ.push({ dz: yao.benDizhi, label: `${yao.position}爻${yao.benLiuQin}${yao.benDizhi}`, wx: yao.benWuxing, type:'yao', pos: yao.position });
+  }
+  const riZhi = p.ganZhi.day?.zhi;
+  const yueZhi = p.ganZhi.month?.zhi;
+  if (riZhi) allDZ.push({ dz: riZhi, label: `日辰${riZhi}`, wx: DZ_WUXING[riZhi], type:'ri' });
+  if (yueZhi) allDZ.push({ dz: yueZhi, label: `月建${yueZhi}`, wx: DZ_WUXING[yueZhi], type:'yue' });
+
+  // 动爻变爻也参与
+  for (const yao of p.yaos) {
+    if (yao.isDong && yao.bianDizhi) {
+      allDZ.push({ dz: yao.bianDizhi, label: `${yao.position}爻变${yao.bianLiuQin}${yao.bianDizhi}`, wx: yao.bianWuxing, type:'bian', pos: yao.position });
+    }
+  }
+
+  const dzSet = allDZ.map(x => x.dz);
+
+  // 1. 六合检测（爻与爻、爻与日月之间）
+  const heChecked = new Set();
+  for (let i = 0; i < allDZ.length; i++) {
+    for (let j = i + 1; j < allDZ.length; j++) {
+      const a = allDZ[i], b = allDZ[j];
+      const key = [a.label, b.label].sort().join('|');
+      if (heChecked.has(key)) continue;
+      if (isLiuHe(a.dz, b.dz)) {
+        heChecked.add(key);
+        findings.liuHe.push(`${a.label} 与 ${b.label} 六合（${a.dz}${b.dz}合）`);
+      }
+    }
+  }
+
+  // 2. 三合局检测
+  for (const ju of SAN_HE_JU) {
+    const matched = [];
+    for (const m of ju.members) {
+      const found = allDZ.filter(x => x.dz === m);
+      if (found.length > 0) matched.push(...found);
+    }
+    const uniqueMembers = new Set(matched.map(x => x.dz));
+    if (uniqueMembers.size === 3) {
+      const labels = ju.members.map(m => {
+        const f = allDZ.find(x => x.dz === m);
+        return f ? f.label : m;
+      });
+      findings.sanHe.push(`${labels.join('、')} 构成 ${ju.name}`);
+    }
+  }
+
+  // 3. 半合局检测
+  for (const ju of BAN_HE_JU) {
+    const matched = [];
+    for (const m of ju.members) {
+      const found = allDZ.find(x => x.dz === m);
+      if (found) matched.push(found);
+    }
+    if (matched.length === 2) {
+      // 排除已成三合的情况
+      const parentSanHe = SAN_HE_JU.find(sh => sh.result === ju.result);
+      if (parentSanHe) {
+        const allPresent = parentSanHe.members.every(m => dzSet.includes(m));
+        if (allPresent) continue; // 已成三合，不再报半合
+      }
+      findings.banHe.push(`${matched.map(x=>x.label).join('、')} 构成 ${ju.name}`);
+    }
+  }
+
+  // 4. 六冲检测
+  const chongChecked = new Set();
+  for (let i = 0; i < allDZ.length; i++) {
+    for (let j = i + 1; j < allDZ.length; j++) {
+      const a = allDZ[i], b = allDZ[j];
+      const key = [a.label, b.label].sort().join('|');
+      if (chongChecked.has(key)) continue;
+      if (isLiuChong(a.dz, b.dz)) {
+        chongChecked.add(key);
+        findings.liuChong.push(`${a.label} 与 ${b.label} 六冲（${a.dz}${b.dz}冲）`);
+      }
+    }
+  }
+
+  // 5. 三刑检测
+  for (const group of SAN_XING_GROUPS) {
+    const matched = [];
+    for (const m of group.members) {
+      const found = allDZ.find(x => x.dz === m);
+      if (found) matched.push(found);
+    }
+    if (matched.length === 3) {
+      findings.sanXing.push(`${matched.map(x=>x.label).join('、')} 构成 ${group.name}`);
+    }
+  }
+
+  // 相刑（两两）
+  const xingChecked = new Set();
+  for (let i = 0; i < allDZ.length; i++) {
+    for (let j = i + 1; j < allDZ.length; j++) {
+      const a = allDZ[i], b = allDZ[j];
+      const key = [a.label, b.label].sort().join('|');
+      if (xingChecked.has(key)) continue;
+      if (XIANG_XING_MAP[a.dz] === b.dz) {
+        xingChecked.add(key);
+        // 自刑
+        if (a.dz === b.dz) {
+          findings.xiangXing.push(`${a.label} 与 ${b.label} 自刑（${a.dz}${b.dz}自刑）`);
+        } else if ((a.dz==='子'&&b.dz==='卯')||(a.dz==='卯'&&b.dz==='子')) {
+          findings.xiangXing.push(`${a.label} 与 ${b.label} 相刑（${a.dz}${b.dz}无礼之刑）`);
+        } else {
+          findings.xiangXing.push(`${a.label} 与 ${b.label} 相刑（${a.dz}${b.dz}刑）`);
+        }
+      }
+    }
+  }
+
+  // 6. 相害检测
+  const haiChecked = new Set();
+  for (let i = 0; i < allDZ.length; i++) {
+    for (let j = i + 1; j < allDZ.length; j++) {
+      const a = allDZ[i], b = allDZ[j];
+      const key = [a.label, b.label].sort().join('|');
+      if (haiChecked.has(key)) continue;
+      if (XIANG_HAI_MAP[a.dz] === b.dz) {
+        haiChecked.add(key);
+        findings.xiangHai.push(`${a.label} 与 ${b.label} 相害（${a.dz}${b.dz}害）`);
+      }
+    }
+  }
+
+  // 7. 相破检测
+  const poChecked = new Set();
+  for (let i = 0; i < allDZ.length; i++) {
+    for (let j = i + 1; j < allDZ.length; j++) {
+      const a = allDZ[i], b = allDZ[j];
+      const key = [a.label, b.label].sort().join('|');
+      if (poChecked.has(key)) continue;
+      if (isPo(a.dz, b.dz)) {
+        poChecked.add(key);
+        findings.xiangPo.push(`${a.label} 与 ${b.label} 相破（${a.dz}${b.dz}破）`);
+      }
+    }
+  }
+
+  // 8. 爻间生克关系（仅爻与爻之间，重点关注动爻对静爻的生克）
+  for (const yao of p.yaos) {
+    if (!yao.isDong) continue;
+    for (const target of p.yaos) {
+      if (target.position === yao.position) continue;
+      if (!yao.benWuxing || !target.benWuxing) continue;
+      if (isSheng(yao.benWuxing, target.benWuxing)) {
+        findings.shengKe.push(`${yao.position}爻${yao.benLiuQin}${yao.benDizhi}(动) 生 ${target.position}爻${target.benLiuQin}${target.benDizhi}`);
+      }
+      if (isKe(yao.benWuxing, target.benWuxing)) {
+        findings.shengKe.push(`${yao.position}爻${yao.benLiuQin}${yao.benDizhi}(动) 克 ${target.position}爻${target.benLiuQin}${target.benDizhi}`);
+      }
+    }
+  }
+
+  // 渲染
+  const sections = [
+    { title:'六合', items:findings.liuHe, impact:'positive' },
+    { title:'三合局', items:findings.sanHe, impact:'positive' },
+    { title:'半合局', items:findings.banHe, impact:'neutral' },
+    { title:'六冲', items:findings.liuChong, impact:'negative' },
+    { title:'三刑', items:findings.sanXing, impact:'negative' },
+    { title:'相刑', items:findings.xiangXing, impact:'negative' },
+    { title:'相害', items:findings.xiangHai, impact:'warning' },
+    { title:'相破', items:findings.xiangPo, impact:'warning' },
+    { title:'动爻生克', items:findings.shengKe, impact:'neutral' },
+  ];
+
+  let hasContent = false;
+  for (const sec of sections) {
+    if (!sec.items.length) continue;
+    hasContent = true;
+    const dc = sec.impact==='positive'?'dot-positive':sec.impact==='negative'?'dot-negative':sec.impact==='warning'?'dot-warning':'dot-neutral';
+    html += `<div class="rule-block"><div class="rule-block-header">${sec.title} <span class="toggle">${sec.items.length}条</span></div><div class="rule-block-body">`;
+    for (const item of sec.items) {
+      html += `<div class="rule-item"><span class="dot ${dc}"></span><span>${item}</span></div>`;
+    }
+    html += '</div></div>';
+  }
+
+  if (!hasContent) {
+    html += '<div class="rule-block"><div class="rule-block-header">生合刑克冲分析</div><div class="rule-block-body"><p class="empty-hint">无特殊生合刑克冲关系</p></div></div>';
+  }
+
+  return html;
+}
+
 function renderBasicInfo() {
   const r = currentReport, p = currentParsed;
-  let html = '<div class="info-grid">';
-  const cards = [
-    ['占问',p.question], ['时间',p.dateTime||''],
-    ['本卦',`${p.benGua.name} / ${p.benGua.gong}宫 (${p.benGua.type})`],
-    ['变卦',p.bianGua.name?`${p.bianGua.name} / ${p.bianGua.gong}宫 (${p.bianGua.type})`:'无'],
-    ['世爻',r.basic.shiYao], ['应爻',r.basic.yingYao],
-    ['动爻',r.basic.dongYaoCount>0?r.basic.dongYaoList.map(d=>`${d.position}爻(${d.ben}→${d.bian})`).join('，'):'无'],
-    ['日空亡',p.kongWang.ri.join('')||'无'],
-  ];
-  for (const [label,value] of cards) {
-    html += `<div class="info-card"><div class="label">${label}</div><div class="value">${value}</div></div>`;
-  }
-  html += '</div>';
+  let html = '';
 
+  // 逐爻状态一览
   html += '<div class="rule-block"><div class="rule-block-header">逐爻状态一览</div><div class="rule-block-body">';
   for (const yd of r.yaoDetails) {
     const tags = yd.statuses.map(s => {
@@ -1179,6 +1403,10 @@ function renderBasicInfo() {
     html += `<div class="rule-item"><span class="dot ${yd.isDong?'dot-warning':'dot-neutral'}"></span><span>${line}</span></div>`;
   }
   html += '</div></div>';
+
+  // 生合刑克冲分析
+  html += renderShengHeXingKeChong(p, r);
+
   $('tab-basic').innerHTML = html;
 }
 
@@ -1204,8 +1432,37 @@ function renderRulesAnalysis() {
 }
 
 function renderYingQi() {
+  // 应期现在依赖AI分析结果
+  if (!currentAiResult || !currentAiResult.trim()) {
+    $('tab-yingqi').innerHTML = `
+      <div class="yingqi-section">
+        <div class="yingqi-title">应期推断</div>
+        <div class="yingqi-waiting">
+          <p style="color:var(--text-muted);margin-bottom:12px;">应期推断需要先完成 AI 研判分析。</p>
+          <button class="btn btn-primary btn-sm" id="btn-go-ai">前往 AI 研判</button>
+        </div>
+      </div>`;
+    const goBtn = document.getElementById('btn-go-ai');
+    if (goBtn) {
+      goBtn.addEventListener('click', () => switchTab('ai'));
+    }
+    return;
+  }
+
+  // 从AI结果中提取应期相关信息
+  const aiText = currentAiResult;
+  let html = '<div class="yingqi-section"><div class="yingqi-title">应期推断</div>';
+
+  // 提取AI输出中的应期章节
+  const yingqiContent = extractYingQiFromAI(aiText);
+
+  if (yingqiContent) {
+    html += `<div class="yingqi-ai-result">${simpleMarkdown(yingqiContent)}</div>`;
+  }
+
+  // 补充规则引擎的应期线索
+  html += '<div class="yingqi-subtitle">规则引擎辅助线索</div>';
   const p = currentParsed;
-  let html = '<div class="yingqi-section"><div class="yingqi-title">应期推断线索</div>';
   const clues = [];
 
   for (const yao of p.yaos) {
@@ -1221,13 +1478,57 @@ function renderYingQi() {
   for (const yao of p.yaos) {
     if (yao.status.riHe||yao.status.yueHe) clues.push({text:`${yao.benLiuQin}${yao.benDizhi} 被合 → 待冲开时应`,condition:'逢合待冲'});
   }
-  if (!clues.length) clues.push({text:'暂无明确应期线索，建议结合 AI 分析',condition:''});
 
-  for (const c of clues) {
-    html += `<div class="yingqi-item">${c.text}${c.condition?`<div class="yingqi-condition">${c.condition}</div>`:''}</div>`;
+  if (clues.length) {
+    for (const c of clues) {
+      html += `<div class="yingqi-item">${c.text}${c.condition?`<div class="yingqi-condition">${c.condition}</div>`:''}</div>`;
+    }
+  } else {
+    html += '<div class="yingqi-item" style="color:var(--text-muted);">规则引擎未发现明确应期线索</div>';
   }
+
   html += '</div>';
   $('tab-yingqi').innerHTML = html;
+}
+
+function extractYingQiFromAI(aiText) {
+  // 尝试提取AI输出中"应期"相关章节
+  const patterns = [
+    /#{1,3}\s*(?:五[、.]?\s*)?应期([\s\S]*?)(?=#{1,3}\s|$)/i,
+    /#{1,3}\s*应期推断([\s\S]*?)(?=#{1,3}\s|$)/i,
+    /#{1,3}\s*(?:\d+[、.]\s*)?应期([\s\S]*?)(?=#{1,3}\s|$)/i,
+    /应期[：:]([\s\S]*?)(?=#{1,3}\s|$)/i,
+  ];
+
+  for (const pat of patterns) {
+    const match = aiText.match(pat);
+    if (match && match[1] && match[1].trim().length > 10) {
+      return match[1].trim();
+    }
+  }
+
+  // 如果找不到独立章节，搜索包含"应期"的段落
+  const lines = aiText.split('\n');
+  const yingqiLines = [];
+  let capturing = false;
+  for (const line of lines) {
+    if (line.includes('应期')) {
+      capturing = true;
+      yingqiLines.push(line);
+    } else if (capturing) {
+      if (line.trim() === '' || /^#{1,3}\s/.test(line)) {
+        if (yingqiLines.length > 0) break;
+      } else {
+        yingqiLines.push(line);
+      }
+    }
+  }
+
+  if (yingqiLines.length > 0) {
+    return yingqiLines.join('\n');
+  }
+
+  return null;
 }
 
 async function handleAiAnalyze() {
@@ -1257,6 +1558,8 @@ async function handleAiAnalyze() {
         $('btn-ai-analyze').disabled = false;
         if (currentAiResult.trim()) {
           outputEl.innerHTML = simpleMarkdown(currentAiResult);
+          // AI分析完成后刷新应期页面
+          renderYingQi();
         } else {
           outputEl.innerHTML = '<div style="color:var(--warning);">AI 返回了空内容。请检查设置中的 API Key 和模型名称是否正确。</div>';
         }

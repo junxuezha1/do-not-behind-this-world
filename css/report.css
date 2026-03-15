@@ -109,6 +109,36 @@
   margin-bottom: 12px;
 }
 
+.yingqi-subtitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 16px;
+  margin-bottom: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.yingqi-ai-result {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding-bottom: 8px;
+}
+.yingqi-ai-result h1, .yingqi-ai-result h2, .yingqi-ai-result h3 {
+  color: var(--accent);
+  margin: 12px 0 6px;
+}
+.yingqi-ai-result p { margin-bottom: 6px; }
+.yingqi-ai-result ul, .yingqi-ai-result ol { padding-left: 20px; margin-bottom: 6px; }
+.yingqi-ai-result li { margin-bottom: 3px; }
+.yingqi-ai-result strong { color: var(--text-primary); }
+
+.yingqi-waiting {
+  text-align: center;
+  padding: 20px 0;
+}
+
 .yingqi-item {
   padding: 8px 0;
   font-size: 14px;
