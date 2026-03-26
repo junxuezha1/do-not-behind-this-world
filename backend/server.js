@@ -25,6 +25,11 @@ const app = express();
 app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json({ limit: '1mb' }));
 
+app.get('/', (_req, res) => {
+  res.type('text/plain; charset=utf-8');
+  res.send('do-not-behind backend is running on :8081\n\nThis service only exposes /api/* endpoints.\nPlease open frontend at http://localhost:8080');
+});
+
 function getClientId(req) {
   const sessionId = req.headers['x-session-id'];
   if (typeof sessionId === 'string' && sessionId.trim()) {

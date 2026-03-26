@@ -9,9 +9,9 @@
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon.svg">
   <title>四时有序 · 六爻解卦</title>
-  <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="css/gua-display.css">
-  <link rel="stylesheet" href="css/report.css">
+  <link rel="stylesheet" href="css/main.css?v=20260326-r5">
+  <link rel="stylesheet" href="css/gua-display.css?v=20260326-r5">
+  <link rel="stylesheet" href="css/report.css?v=20260326-r5">
 </head>
 <body>
   <!-- 顶部导航 -->
@@ -23,7 +23,7 @@
     </nav>
   </header>
 
-  <div class="build-badge" id="build-badge">版本 2026.03.26-r3</div>
+  <div class="build-badge" id="build-badge">版本 2026.03.26-r5</div>
 
   <!-- 主内容区 -->
   <main class="main-container">
@@ -157,11 +157,11 @@
   </div>
 
   <!-- JS -->
-  <script src="js/app-bundle.js"></script>
+  <script src="js/app-bundle.js?v=20260326-r5"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(() => {
-        navigator.serviceWorker.getRegistration().then(r => r && r.update());
+      navigator.serviceWorker.getRegistration().then(r => {
+        if (r) r.unregister();
       }).catch(() => {});
     }
   </script>
