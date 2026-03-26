@@ -772,7 +772,14 @@ const aiConfig = {
   providers: { openai:{apiKey:'',model:'',baseUrl:''}, claude:{apiKey:'',model:'',baseUrl:''}, deepseek:{apiKey:'',model:'',baseUrl:''}, custom:{apiKey:'',model:'',baseUrl:''} },
 };
 
-const API_BASE_URL = localStorage.getItem('liuguang_api_base') || 'http://localhost:8081';
+function getDefaultApiBaseUrl() {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    return 'http://localhost:8081';
+  }
+  return `${location.origin}/api`;
+}
+
+const API_BASE_URL = localStorage.getItem('liuguang_api_base') || getDefaultApiBaseUrl();
 const SESSION_KEY = 'liuguang_session_id';
 
 function ensureSessionId() {
@@ -806,7 +813,11 @@ async function refreshQuotaHint() {
     const q = await fetchQuotaInfo();
     el.textContent = `今日剩余 ${q.remaining}/${q.limit} 次`;
   } catch {
-    el.textContent = '后端未连接，请先启动 backend 服务';
+    if (location.hostname.includes('github.io')) {
+      el.textContent = '在线版当前未连接 AI 服务，规则分析可直接使用';
+      return;
+    }
+    el.textContent = '后端未连接：请双击“启动服务器.bat”后重试';
   }
 }
 
@@ -872,7 +883,11 @@ async function streamAIAnalyze(summary, rawText, onChunk, onDone, onError) {
 
     onDone?.();
   } catch (err) {
-    onError?.(`请求失败: ${err.message || '未知错误'}，请确认后端已启动`);
+    if (location.hostname.includes('github.io')) {
+      onError?.('在线版当前未连接 AI 服务。你仍可直接使用解析、规则分析和归档功能。');
+      return;
+    }
+    onError?.(`请求失败: ${err.message || '未知错误'}，请确认已通过 BAT 启动本地服务`);
   }
 }
 

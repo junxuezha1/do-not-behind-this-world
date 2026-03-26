@@ -1,4 +1,4 @@
-const CACHE_NAME = 'liuyao-v2';
+const CACHE_NAME = 'liuyao-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -34,14 +34,32 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // 静态资源：缓存优先，网络回退
+  const isDocument = e.request.mode === 'navigate' || e.request.destination === 'document';
+
+  // HTML文档优先网络，确保线上及时拿到最新版本
+  if (isDocument) {
+    e.respondWith(
+      fetch(e.request)
+        .then(resp => {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          return resp;
+        })
+        .catch(() => caches.match(e.request).then(cached => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // 静态资源：缓存优先 + 后台刷新
   e.respondWith(
     caches.match(e.request).then(cached => {
-      const fetched = fetch(e.request).then(resp => {
-        const clone = resp.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-        return resp;
-      }).catch(() => cached);
+      const fetched = fetch(e.request)
+        .then(resp => {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          return resp;
+        })
+        .catch(() => cached);
       return cached || fetched;
     })
   );
