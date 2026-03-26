@@ -19,7 +19,6 @@
     <div class="logo">四时有序 · 六爻解卦</div>
     <nav class="top-nav">
       <button class="nav-btn" id="btn-history" title="历史归档">归档</button>
-      <button class="nav-btn" id="btn-settings" title="AI设置">设置</button>
     </nav>
   </header>
 
@@ -72,12 +71,7 @@
           <div id="tab-basic" class="tab-panel active"></div>
           <div id="tab-ai" class="tab-panel">
             <div class="ai-controls">
-              <select id="ai-provider-select">
-                <option value="openai">OpenAI (GPT)</option>
-                <option value="claude">Claude</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="custom">自定义</option>
-              </select>
+              <div id="ai-quota-hint" class="ai-quota-hint">正在获取今日可用次数...</div>
               <button class="btn btn-primary btn-sm" id="btn-ai-analyze">AI 断卦</button>
             </div>
             <div id="ai-output" class="ai-output"></div>
@@ -92,42 +86,6 @@
       </div>
     </section>
   </main>
-
-  <!-- 设置模态框 -->
-  <div id="modal-settings" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>AI 模型设置</h3>
-        <button class="modal-close" id="btn-close-settings">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>当前模型</label>
-          <select id="settings-provider">
-            <option value="openai">OpenAI (GPT)</option>
-            <option value="claude">Claude</option>
-            <option value="deepseek">DeepSeek</option>
-            <option value="custom">自定义 (OpenAI兼容)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>API Key</label>
-          <input type="password" id="settings-apikey" placeholder="输入 API Key">
-        </div>
-        <div class="form-group">
-          <label>模型名称</label>
-          <input type="text" id="settings-model" placeholder="如 gpt-4o, claude-sonnet-4-20250514">
-        </div>
-        <div class="form-group">
-          <label>Base URL (可选，留空用默认)</label>
-          <input type="text" id="settings-baseurl" placeholder="https://api.example.com/v1/chat/completions">
-        </div>
-        <div class="form-actions">
-          <button class="btn btn-primary" id="btn-save-settings">保存</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- 历史归档模态框 -->
   <div id="modal-history" class="modal hidden">

@@ -1,20 +1,20 @@
 /* ═══ CSS 变量与全局样式 ═══ */
 :root {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-card: #0f3460;
-  --bg-input: #1a1a3e;
-  --text-primary: #e8e8e8;
-  --text-secondary: #a0a0b8;
-  --text-muted: #6c6c88;
-  --accent: #e94560;
-  --accent-hover: #ff6b81;
-  --border: #2a2a4a;
-  --border-light: #3a3a5a;
-  --success: #4ecdc4;
-  --warning: #f7b731;
-  --danger: #eb3b5a;
-  --info: #45aaf2;
+  --bg-primary: #111622;
+  --bg-secondary: #171f32;
+  --bg-card: #202a42;
+  --bg-input: #151d2f;
+  --text-primary: #e9eef8;
+  --text-secondary: #b4bfd7;
+  --text-muted: #8591ad;
+  --accent: #e06f2d;
+  --accent-hover: #f08a4b;
+  --border: #2a3550;
+  --border-light: #3f4b6b;
+  --success: #4bc59a;
+  --warning: #f3b34c;
+  --danger: #ea5b5b;
+  --info: #5ea8ff;
 
   /* 六神配色 */
   --shen-qinglong: #4ecdc4;
@@ -40,12 +40,26 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'KaiTi', '楷体', 'STKaiti', 'Microsoft YaHei', serif;
+  font-family: 'Noto Serif SC', 'Songti SC', 'STSong', 'Microsoft YaHei', serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
   line-height: 1.6;
   font-size: 16px;
+  background-image:
+    radial-gradient(circle at 15% 12%, rgba(224,111,45,0.14), transparent 34%),
+    radial-gradient(circle at 88% 80%, rgba(94,168,255,0.1), transparent 30%),
+    linear-gradient(180deg, #111622 0%, #0d131f 100%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 24px 24px;
+  z-index: -1;
 }
 
 /* ═══ 顶部导航 ═══ */
@@ -54,7 +68,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 12px 24px;
-  background: var(--bg-secondary);
+  background: rgba(23,31,50,0.82);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -62,10 +77,10 @@ body {
 }
 
 .logo {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--accent);
-  letter-spacing: 2px;
+  letter-spacing: 1px;
 }
 
 .top-nav { display: flex; gap: 8px; }
@@ -92,7 +107,7 @@ body {
   grid-template-columns: 400px 1fr;
   gap: 20px;
   padding: 20px 24px;
-  max-width: 1400px;
+  max-width: 1460px;
   margin: 0 auto;
   min-height: calc(100vh - 56px);
 }
@@ -125,13 +140,18 @@ body {
   position: sticky;
   top: 76px;
   align-self: start;
+  background: rgba(23,31,50,0.72);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow);
 }
 
 .gua-textarea {
   width: 100%;
   height: 360px;
   background: var(--bg-input);
-  border: 1px solid var(--border);
+  border: 1px solid #324160;
   border-radius: var(--radius);
   color: var(--text-primary);
   font-family: var(--font-mono);
@@ -169,10 +189,10 @@ body {
 .btn-sm { padding: 6px 14px; font-size: 13px; }
 
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(135deg, #d96829, var(--accent-hover));
   color: #fff;
 }
-.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:hover { filter: brightness(1.08); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-secondary {
@@ -281,6 +301,14 @@ body {
   padding-bottom: 0;
 }
 
+.result-section {
+  background: rgba(23,31,50,0.72);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
 .tab-btn {
   background: transparent;
   border: none;
@@ -306,14 +334,16 @@ body {
   gap: 10px;
   margin-bottom: 16px;
   align-items: center;
+  justify-content: space-between;
 }
-.ai-controls select {
-  padding: 6px 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-primary);
+
+.ai-quota-hint {
   font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(94,168,255,0.1);
+  border: 1px solid rgba(94,168,255,0.28);
+  border-radius: 999px;
+  padding: 6px 12px;
 }
 
 .ai-output {

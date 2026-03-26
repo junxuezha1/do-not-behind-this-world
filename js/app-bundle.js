@@ -772,115 +772,107 @@ const aiConfig = {
   providers: { openai:{apiKey:'',model:'',baseUrl:''}, claude:{apiKey:'',model:'',baseUrl:''}, deepseek:{apiKey:'',model:'',baseUrl:''}, custom:{apiKey:'',model:'',baseUrl:''} },
 };
 
+const API_BASE_URL = localStorage.getItem('liuguang_api_base') || 'http://localhost:8081';
+const SESSION_KEY = 'liuguang_session_id';
+
+function ensureSessionId() {
+  let sid = localStorage.getItem(SESSION_KEY);
+  if (!sid) {
+    sid = `${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`;
+    localStorage.setItem(SESSION_KEY, sid);
+  }
+  return sid;
+}
+
+function getApiHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'x-session-id': ensureSessionId(),
+  };
+}
+
+async function fetchQuotaInfo() {
+  const resp = await fetch(`${API_BASE_URL}/api/ai/quota`, {
+    headers: { 'x-session-id': ensureSessionId() },
+  });
+  if (!resp.ok) throw new Error('配额查询失败');
+  return resp.json();
+}
+
+async function refreshQuotaHint() {
+  const el = $('ai-quota-hint');
+  if (!el) return;
+  try {
+    const q = await fetchQuotaInfo();
+    el.textContent = `今日剩余 ${q.remaining}/${q.limit} 次`;
+  } catch {
+    el.textContent = '后端未连接，请先启动 backend 服务';
+  }
+}
+
 function loadAIConfig() {
   try { const s = localStorage.getItem('liuguang_ai_config'); if (s) Object.assign(aiConfig, JSON.parse(s)); } catch {}
 }
 function saveAIConfig() { localStorage.setItem('liuguang_ai_config', JSON.stringify(aiConfig)); }
 
 async function streamAIAnalyze(summary, rawText, onChunk, onDone, onError) {
-  const pn = aiConfig.activeProvider;
-  const provider = AI_PROVIDERS[pn];
-  const pc = aiConfig.providers[pn];
-  if (!provider) { onError?.('未知的 AI 提供商'); return; }
-  if (!pc.apiKey) { onError?.('请先在设置中配置 API Key'); return; }
-
-  const model = pc.model || provider.defaultModel;
-  const baseUrl = pc.baseUrl || provider.defaultBaseUrl;
-  if (!baseUrl) { onError?.('请配置 API 地址'); return; }
-
   try {
-    console.log('[AI] 开始请求:', baseUrl, 'provider:', pn, 'model:', model);
-    let resp;
-    try {
-      resp = await fetch(baseUrl, {
-        method:'POST',
-        headers: provider.buildHeaders(pc.apiKey),
-        body: JSON.stringify(provider.buildBody(model, getAISystemPrompt(), getAIUserPrompt(summary, rawText), true)),
-      });
-    } catch (fetchErr) {
-      console.error('[AI] fetch 失败:', fetchErr);
-      onError?.(`网络请求失败: ${fetchErr.message || '浏览器阻止了请求（可能是 CORS 问题）'}\n\n如果你是通过 file:// 打开本页面，请改用本地服务器访问。`);
+    const resp = await fetch(`${API_BASE_URL}/api/ai/analyze`, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify({ summary, rawText }),
+    });
+
+    if (!resp.ok) {
+      let message = `后端错误 (${resp.status})`;
+      try {
+        const err = await resp.json();
+        if (err?.error) message = err.error;
+      } catch {}
+      onError?.(message);
       return;
     }
 
-    console.log('[AI] 响应状态:', resp.status);
-    if (!resp.ok) { const t = await resp.text(); onError?.(`API 错误 (${resp.status}): ${t.substring(0,200)}`); return; }
-
     if (!resp.body) {
-      // 非流式回退：直接读取整个响应
-      const fullText = await resp.text();
-      console.log('[AI] 非流式响应，长度:', fullText.length);
-      try {
-        const json = JSON.parse(fullText);
-        const content = json.choices?.[0]?.message?.content || json.content?.[0]?.text || '';
-        if (content) { onChunk(content); onDone?.(); } else { onError?.('AI 返回了空内容'); }
-      } catch { onChunk(fullText); onDone?.(); }
+      onError?.('后端未返回流式内容');
       return;
     }
 
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let gotAnyChunk = false;
-    let rawAll = '';  // 保存完整原始响应用于调试和回退
 
     while (true) {
-      const {done, value} = await reader.read();
+      const { done, value } = await reader.read();
       if (done) break;
-      const decoded = decoder.decode(value, {stream:true});
-      rawAll += decoded;
-      buffer += decoded;
-      const bufLines = buffer.split('\n');
-      buffer = bufLines.pop() || '';
-      for (const bl of bufLines) {
-        const trimmed = bl.trim();
-        if (!trimmed) continue;
-        console.log('[AI] SSE行:', trimmed.substring(0, 120));
-        const chunk = provider.parseStreamChunk(trimmed);
-        if (chunk === null) break;
-        if (chunk) { gotAnyChunk = true; onChunk(chunk); }
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const payload = trimmed.slice(6);
+        try {
+          const evt = JSON.parse(payload);
+          if (evt.type === 'delta' && evt.content) {
+            onChunk(evt.content);
+          } else if (evt.type === 'quota') {
+            const hint = $('ai-quota-hint');
+            if (hint) hint.textContent = `今日剩余 ${evt.remaining}/${evt.limit} 次`;
+          } else if (evt.type === 'error') {
+            onError?.(evt.error || '流式分析中断');
+          }
+        } catch {
+          // ignore chunk parse errors
+        }
       }
     }
 
-    if (!gotAnyChunk) {
-      console.warn('[AI] 流式解析未提取到内容，原始响应长度:', rawAll.length);
-      console.log('[AI] 原始响应前500字符:', rawAll.substring(0, 500));
-      // 尝试将原始响应作为 JSON 解析（可能服务器忽略了 stream 参数返回了完整 JSON）
-      try {
-        const json = JSON.parse(rawAll);
-        const content = json.choices?.[0]?.message?.content  // OpenAI 格式
-          || json.content?.[0]?.text  // Claude 格式
-          || '';
-        if (content) {
-          console.log('[AI] 从非流式 JSON 回退解析成功');
-          onChunk(content);
-          onDone?.();
-          return;
-        }
-      } catch {}
-      // JSON 解析也失败，用非流式重新请求
-      console.log('[AI] 尝试非流式重新请求...');
-      onChunk('[流式解析失败，正在用非流式方式重试...]\n\n');
-      try {
-        const resp2 = await fetch(baseUrl, {
-          method:'POST',
-          headers: provider.buildHeaders(pc.apiKey),
-          body: JSON.stringify(provider.buildBody(model, getAISystemPrompt(), getAIUserPrompt(summary, rawText), false)),
-        });
-        if (!resp2.ok) { const t2 = await resp2.text(); onError?.(`非流式重试失败 (${resp2.status}): ${t2.substring(0,200)}`); return; }
-        const data = await resp2.json();
-        const content = provider.parseResponse(data);
-        if (content) { onChunk(content); onDone?.(); }
-        else { onError?.('AI 返回了空内容，请检查 API Key 和模型名称是否正确。\n\n原始响应: ' + JSON.stringify(data).substring(0,300)); }
-      } catch (retryErr) {
-        onError?.(`非流式重试失败: ${retryErr.message}`);
-      }
-    } else {
-      onDone?.();
-    }
+    onDone?.();
   } catch (err) {
-    console.error('[AI] 未预期的错误:', err);
-    onError?.(`请求失败: ${err.message || '未知错误'}\n\n如果你是通过 file:// 打开本页面，请改用本地服务器访问。`);
+    onError?.(`请求失败: ${err.message || '未知错误'}，请确认后端已启动`);
   }
 }
 
@@ -909,18 +901,44 @@ function createArchiveEntry(parsed, report, aiResult) {
   };
 }
 
-function loadArchivesList() {
+function loadArchivesListLocal() {
   try { const s = localStorage.getItem(ARCHIVE_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
 }
-function saveArchiveEntry(a) { const list = loadArchivesList(); list.unshift(a); localStorage.setItem(ARCHIVE_KEY, JSON.stringify(list)); }
+function saveArchiveEntryLocal(a) { const list = loadArchivesListLocal(); list.unshift(a); localStorage.setItem(ARCHIVE_KEY, JSON.stringify(list)); }
 function clearAllArchives() { localStorage.removeItem(ARCHIVE_KEY); }
 function exportAllArchives() {
-  const list = loadArchivesList();
+  const list = loadArchivesListLocal();
   const blob = new Blob([JSON.stringify(list,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `六爻归档_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.json`;
   a.click(); URL.revokeObjectURL(url);
+}
+
+async function loadArchivesList() {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/archive`, { headers: { 'x-session-id': ensureSessionId() } });
+    if (!resp.ok) throw new Error('加载归档失败');
+    const rows = await resp.json();
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(rows));
+    return rows;
+  } catch {
+    return loadArchivesListLocal();
+  }
+}
+
+async function saveArchiveEntry(a) {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/archive`, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify(a),
+    });
+    if (!resp.ok) throw new Error('保存归档失败');
+    await loadArchivesList();
+  } catch {
+    saveArchiveEntryLocal(a);
+  }
 }
 
 
@@ -935,37 +953,37 @@ let currentAiResult = '';
 const $ = id => document.getElementById(id);
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadAIConfig();
+  ensureSessionId();
   bindEvents();
-  loadSettingsToUI();
+  refreshQuotaHint();
   renderGanZhiCalendar();
 });
 
 function bindEvents() {
-  $('btn-parse').addEventListener('click', handleParse);
-  $('btn-clear').addEventListener('click', () => { $('gua-input').value = ''; hideResults(); });
+  const on = (id, event, fn) => {
+    const el = $(id);
+    if (el) el.addEventListener(event, fn);
+  };
+
+  on('btn-parse', 'click', handleParse);
+  on('btn-clear', 'click', () => { $('gua-input').value = ''; hideResults(); });
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
 
-  $('btn-ai-analyze').addEventListener('click', handleAiAnalyze);
-  $('btn-archive').addEventListener('click', handleArchive);
+  on('btn-ai-analyze', 'click', handleAiAnalyze);
+  on('btn-archive', 'click', handleArchive);
 
-  $('btn-settings').addEventListener('click', () => toggleModal('modal-settings', true));
-  $('btn-close-settings').addEventListener('click', () => toggleModal('modal-settings', false));
-  $('btn-save-settings').addEventListener('click', handleSaveSettings);
-
-  $('btn-history').addEventListener('click', () => { renderHistory(); toggleModal('modal-history', true); });
-  $('btn-close-history').addEventListener('click', () => toggleModal('modal-history', false));
-  $('btn-clear-history').addEventListener('click', () => { if (confirm('确定清空所有归档记录？')) { clearAllArchives(); renderHistory(); } });
-  $('btn-export-history').addEventListener('click', exportAllArchives);
+  on('btn-history', 'click', () => { renderHistory(); toggleModal('modal-history', true); });
+  on('btn-close-history', 'click', () => toggleModal('modal-history', false));
+  on('btn-clear-history', 'click', () => { if (confirm('确定清空所有归档记录？')) { clearAllArchives(); renderHistory(); } });
+  on('btn-export-history', 'click', exportAllArchives);
 
   document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', e => { if (e.target === modal) toggleModal(modal.id, false); });
   });
 
-  $('ai-provider-select').addEventListener('change', e => { $('settings-provider').value = e.target.value; });
 }
 
 function handleParse() {
@@ -1545,7 +1563,6 @@ async function handleAiAnalyze() {
     if (!confirm(msg)) return;
   }
 
-  aiConfig.activeProvider = $('ai-provider-select').value;
   const outputEl = $('ai-output');
   outputEl.innerHTML = '<div class="loading-text">AI 分析中，请稍候...</div>';
   currentAiResult = '';
@@ -1556,12 +1573,13 @@ async function handleAiAnalyze() {
       chunk => { currentAiResult += chunk; outputEl.textContent = currentAiResult; },
       () => {
         $('btn-ai-analyze').disabled = false;
+        refreshQuotaHint();
         if (currentAiResult.trim()) {
           outputEl.innerHTML = simpleMarkdown(currentAiResult);
           // AI分析完成后刷新应期页面
           renderYingQi();
         } else {
-          outputEl.innerHTML = '<div style="color:var(--warning);">AI 返回了空内容。请检查设置中的 API Key 和模型名称是否正确。</div>';
+          outputEl.innerHTML = '<div style="color:var(--warning);">AI 返回了空内容，请稍后再试。</div>';
         }
       },
       err => {
@@ -1576,17 +1594,17 @@ async function handleAiAnalyze() {
   }
 }
 
-function handleArchive() {
+async function handleArchive() {
   if (!currentParsed || !currentReport) return;
   const conclusion = prompt('请输入简要结论（可留空）：','');
   const archive = createArchiveEntry(currentParsed, currentReport, currentAiResult);
   archive.conclusion = conclusion || '';
-  saveArchiveEntry(archive);
+  await saveArchiveEntry(archive);
   alert('已归档！');
 }
 
-function renderHistory() {
-  const list = loadArchivesList();
+async function renderHistory() {
+  const list = await loadArchivesList();
   const el = $('history-list');
   if (!list.length) { el.innerHTML = '<p class="empty-hint">暂无归档记录</p>'; return; }
   let html = '';
@@ -1605,36 +1623,6 @@ function renderHistory() {
       if (a?.rawText) { $('gua-input').value = a.rawText; toggleModal('modal-history',false); handleParse(); }
     });
   });
-}
-
-function loadSettingsToUI() {
-  $('settings-provider').value = aiConfig.activeProvider;
-  $('ai-provider-select').value = aiConfig.activeProvider;
-  const pc = aiConfig.providers[aiConfig.activeProvider] || {};
-  $('settings-apikey').value = pc.apiKey || '';
-  $('settings-model').value = pc.model || '';
-  $('settings-baseurl').value = pc.baseUrl || '';
-
-  $('settings-provider').addEventListener('change', () => {
-    const c = aiConfig.providers[$('settings-provider').value] || {};
-    $('settings-apikey').value = c.apiKey || '';
-    $('settings-model').value = c.model || '';
-    $('settings-baseurl').value = c.baseUrl || '';
-  });
-}
-
-function handleSaveSettings() {
-  const pn = $('settings-provider').value;
-  aiConfig.activeProvider = pn;
-  aiConfig.providers[pn] = {
-    apiKey: $('settings-apikey').value.trim(),
-    model: $('settings-model').value.trim(),
-    baseUrl: $('settings-baseurl').value.trim(),
-  };
-  saveAIConfig();
-  $('ai-provider-select').value = pn;
-  toggleModal('modal-settings', false);
-  alert('设置已保存');
 }
 
 function switchTab(tabName) {
